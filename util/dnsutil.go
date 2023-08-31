@@ -33,7 +33,8 @@ func ParseDNSRecord(req *http.Request) (*pb.DNSRecord, error) {
 
 	// do the same as above for non-string fields
 	for field, val := range map[string]*uint32{
-		"ttl": &dnsRecord.Ttl,
+		"ttl":  &dnsRecord.Ttl,
+		"type": &dnsRecord.Type,
 	} {
 		i, err := strconv.Atoi(req.FormValue(field))
 		if err != nil {
@@ -43,15 +44,6 @@ func ParseDNSRecord(req *http.Request) (*pb.DNSRecord, error) {
 		if *val == 0 {
 			return nil, fmt.Errorf("missing field %s", field)
 		}
-	}
-	// enums
-	i, err := strconv.Atoi(req.FormValue("ttl"))
-	if err != nil {
-		return nil, err
-	}
-	dnsRecord.Ttl = uint32(i)
-	if dnsRecord.Ttl == 0 {
-		return nil, fmt.Errorf("missing field %s", "ttl")
 	}
 
 	return dnsRecord, nil

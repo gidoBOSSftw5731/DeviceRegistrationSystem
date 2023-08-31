@@ -1,11 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
+	"os/exec"
 	"strings"
 
 	"github.com/gidoBOSSftw5731/DeviceRegistrationSystem/util"
 	"github.com/gidoBOSSftw5731/log"
+	"github.com/miekg/dns"
 	"gorm.io/gorm"
 
 	pb "github.com/gidoBOSSftw5731/DeviceRegistrationSystem/proto"
@@ -31,6 +34,9 @@ func main() {
 	if err != nil {
 		log.Panicln(err)
 	}
+
+	// start DNS server
+	dnsServer()
 
 	s := &Handler{}
 
@@ -67,4 +73,41 @@ func (h *Handler) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		db.Create(dnsRecord)
 	}
 
+}
+
+func dnsServer() {
+	log.Infoln("Starting DNS server")
+	dnsMux := dns.NewServeMux()
+	dnsHandler := util.DNSHandler{
+		Config: config,
+		DB:     db,
+	}
+	dnsMux.HandleFunc(".", dnsHandler.HandleDNS)
+	server := &dns.Server{
+		Addr:    config.DnsConf.ListenPort,
+		Net:     "udp",
+		Handler: dnsMux,
+	}
+	serverTCP := &dns.Server{
+		Addr:    config.DnsConf.ListenPort,
+		Net:     "tcp",
+		Handler: dnsMux,
+	}
+	go func() {
+		// Don't let the DNS server die, we need it to keep running
+		for {
+			log.Errorln(server.ListenAndServe())
+		}
+	}()
+	go func() {
+		// Don't let the DNS server die, we need it to keep running
+		for {
+			// https://github.com/rimiti/kill-port/blob/master/main.go
+			command := fmt.Sprintf("lsof -i tcp:%s | grep LISTEN | awk '{print $2}' | xargs kill -9",
+				config.DnsConf.GetListenPort()[1:])
+			util.Exec_cmd(exec.Command("bash", "-c", command))
+
+			log.Errorln(serverTCP.ListenAndServe())
+		}
+	}()
 }

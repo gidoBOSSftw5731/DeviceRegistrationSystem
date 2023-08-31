@@ -6,7 +6,7 @@ option go_package = ".;proto";
 
 message ServerConfig {
     DatabaseConfig DB_conf = 1;
-    BindConfig bind_conf = 2;
+    DNSConfig dns_conf = 2;
     string listen_addr = 3;
 }
 
@@ -19,32 +19,23 @@ message DatabaseConfig {
     string database_name = 4;
 }
 
-message BindConfig {
-    string zone_path = 1;
+message DNSConfig {
+    repeated string root_zones = 1;
+    repeated string axfr_list = 2;
+    // listen port can be set to :53 to run standalong, however this requires running
+    // the service as root. As such, the default is to bind to :5353.
+    // You MUST preface it with a ':'
+    string listen_port = 3;
+    string ns_addr = 4;
+    string admin_email = 5;
 }
 
 message DNSRecord {
     string name = 1;
-    RecordType type = 2;
+    // type should be the same as the decimal ID for the record type.
+    uint32 type = 2;
     string value = 3;
     uint32 ttl = 4;
     string zone = 5;
     string user = 6;
-}
-
-// RecordType is an enum that lists types of DNS records.
-enum RecordType {
-// list all the dns records as listed in the standard with their decimal id:
-// https://en.wikipedia.org/wiki/List_of_DNS_record_types
-    // do not use NONE, it is a placeholder.
-    NONE = 0 [deprecated = true];
-    A = 1;
-    AAAA = 28;
-    CNAME = 5;
-    MX = 15;
-    NS = 2;
-    PTR = 12;
-    SOA = 6;
-    SRV = 33;
-    TXT = 16;
 }

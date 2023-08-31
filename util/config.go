@@ -19,8 +19,11 @@ var (
 			Password:     "BEAPROANDCHANGEME!",
 			DatabaseName: "DRS",
 		},
-		BindConf: &pb.BindConfig{
-			ZonePath: "/var/cache/bind",
+		DnsConf: &pb.DNSConfig{
+			RootZones:  []string{"cshtest.clickable.systems."},
+			ListenPort: ":5353",
+			NsAddr:     "cshtestns.clickable.systems.",
+			AdminEmail: "hostmaster.csh.rit.edu.",
 		},
 		ListenAddr: ":8090",
 	}
@@ -30,6 +33,7 @@ var (
 // and then returns a config struct
 // envPath is a list of paths to .env files to load if they aren't in your working directory
 func ReadConf(defaultConfig *pb.ServerConfig, envPath ...string) *pb.ServerConfig {
+	// Load environment variables from .env files
 	err := gotenv.Load(envPath...)
 	if err != nil {
 		panic(err)
@@ -43,9 +47,23 @@ func ReadConf(defaultConfig *pb.ServerConfig, envPath ...string) *pb.ServerConfi
 		"DB_PASSWORD":      &conf.DBConf.Password,
 		"LISTEN_ADDR":      &conf.ListenAddr,
 		"DB_DATABASE_NAME": &conf.DBConf.DatabaseName,
+		"DNS_ROOT_ZONE":    &conf.DnsConf.RootZones[0],
+		"LISTEN_PORT":      &conf.DnsConf.ListenPort,
+		"NS_ADDR":          &conf.DnsConf.NsAddr,
+		"ADMIN_EMAIL":      &conf.DnsConf.AdminEmail,
 	} {
 		if os.Getenv(env) != "" {
 			*val = os.Getenv(env)
+		}
+	}
+
+	// Check zones for trailing period
+	for _, zone := range append([]string{
+		conf.DnsConf.GetNsAddr(),
+		conf.DnsConf.GetAdminEmail(),
+	}, conf.DnsConf.GetRootZones()...) {
+		if zone[len(zone)-1] != '.' {
+			zone += "."
 		}
 	}
 
