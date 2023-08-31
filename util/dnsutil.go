@@ -48,3 +48,12 @@ func ParseDNSRecord(req *http.Request) (*pb.DNSRecord, error) {
 
 	return dnsRecord, nil
 }
+
+func processFullName(record *pb.DNSRecord) string {
+	switch record.GetName() {
+	case "@":
+		return record.GetZone()
+	default:
+		return fmt.Sprintf("%s.%s", record.GetName(), record.GetZone())
+	}
+}

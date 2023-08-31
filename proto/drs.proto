@@ -28,6 +28,7 @@ message DNSConfig {
     string listen_port = 3;
     string ns_addr = 4;
     string admin_email = 5;
+    repeated string axfr_to = 6;
 }
 
 message DNSRecord {

@@ -24,6 +24,7 @@ var (
 			ListenPort: ":5353",
 			NsAddr:     "cshtestns.clickable.systems.",
 			AdminEmail: "hostmaster.csh.rit.edu.",
+			AxfrTo:     []string{"127.0.0.1"},
 		},
 		ListenAddr: ":8090",
 	}
@@ -51,6 +52,7 @@ func ReadConf(defaultConfig *pb.ServerConfig, envPath ...string) *pb.ServerConfi
 		"LISTEN_PORT":      &conf.DnsConf.ListenPort,
 		"NS_ADDR":          &conf.DnsConf.NsAddr,
 		"ADMIN_EMAIL":      &conf.DnsConf.AdminEmail,
+		"AXFR_TO":          &conf.DnsConf.AxfrTo[0],
 	} {
 		if os.Getenv(env) != "" {
 			*val = os.Getenv(env)
