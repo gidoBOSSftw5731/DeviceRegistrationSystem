@@ -35,8 +35,11 @@ message DNSRecord {
     string name = 1;
     // type should be the same as the decimal ID for the record type.
     uint32 type = 2;
+    // value is optional for some records, but required for many.
     string value = 3;
     uint32 ttl = 4;
     string zone = 5;
     string user = 6;
+    // priority is set for MX records.
+    string priority = 7;
 }

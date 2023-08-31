@@ -6,6 +6,22 @@ import (
 	"strconv"
 
 	pb "github.com/gidoBOSSftw5731/DeviceRegistrationSystem/proto"
+	"github.com/miekg/dns"
+)
+
+var (
+	f *bool
+	// these settings are for types of records which require certain fields.
+	requireValue = map[uint16]*bool{
+		dns.TypeAAAA:  f,
+		dns.TypeA:     f,
+		dns.TypeCNAME: f,
+		dns.TypeNS:    f,
+		dns.TypePTR:   f,
+		dns.TypeTXT:   f,
+		dns.TypeMX:    f}
+	requirePriority = map[uint16]*bool{
+		dns.TypeMX: f}
 )
 
 func ParseDNSRecord(req *http.Request) (*pb.DNSRecord, error) {
@@ -19,11 +35,11 @@ func ParseDNSRecord(req *http.Request) (*pb.DNSRecord, error) {
 
 	// set the fields of the DNSRecord using a map of the fields and pointers to their locations
 	// in the struct
+	// all of these are mandatory
 	for field, val := range map[string]*string{
-		"user":  &dnsRecord.User,
-		"name":  &dnsRecord.Name,
-		"value": &dnsRecord.Value,
-		"zone":  &dnsRecord.Zone,
+		"user": &dnsRecord.User,
+		"name": &dnsRecord.Name,
+		"zone": &dnsRecord.Zone,
 	} {
 		*val = req.FormValue(field)
 		if *val == "" {
@@ -42,6 +58,23 @@ func ParseDNSRecord(req *http.Request) (*pb.DNSRecord, error) {
 		}
 		*val = uint32(i)
 		if *val == 0 {
+			return nil, fmt.Errorf("missing field %s", field)
+		}
+	}
+
+	// set the optional fields based on the type
+	requiredFields := map[string]*string{}
+
+	if _, ok := requireValue[uint16(dnsRecord.GetType())]; ok {
+		requiredFields["value"] = &dnsRecord.Value
+	}
+	if _, ok := requirePriority[uint16(dnsRecord.GetType())]; ok {
+		requiredFields["priority"] = &dnsRecord.Priority
+	}
+
+	for field, val := range requiredFields {
+		*val = req.FormValue(field)
+		if *val == "" {
 			return nil, fmt.Errorf("missing field %s", field)
 		}
 	}
