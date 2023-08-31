@@ -1,0 +1,50 @@
+// Proto definition for API service.
+
+syntax = "proto3";
+package apiproto;
+option go_package = ".;proto";
+
+message ServerConfig {
+    DatabaseConfig DB_conf = 1;
+    BindConfig bind_conf = 2;
+    string listen_addr = 3;
+}
+
+// DatabaseConfig is the configuration for the Postgres database.
+message DatabaseConfig {
+    // Hostname is in format host:port.
+    string hostname = 1;
+    string username = 2;
+    string password = 3;
+    string database_name = 4;
+}
+
+message BindConfig {
+    string zone_path = 1;
+}
+
+message DNSRecord {
+    string name = 1;
+    RecordType type = 2;
+    string value = 3;
+    uint32 ttl = 4;
+    string zone = 5;
+    string user = 6;
+}
+
+// RecordType is an enum that lists types of DNS records.
+enum RecordType {
+// list all the dns records as listed in the standard with their decimal id:
+// https://en.wikipedia.org/wiki/List_of_DNS_record_types
+    // do not use NONE, it is a placeholder.
+    NONE = 0 [deprecated = true];
+    A = 1;
+    AAAA = 28;
+    CNAME = 5;
+    MX = 15;
+    NS = 2;
+    PTR = 12;
+    SOA = 6;
+    SRV = 33;
+    TXT = 16;
+}
