@@ -10,9 +10,9 @@ import (
 )
 
 var (
-	f *bool
+	f *interface{}
 	// these settings are for types of records which require certain fields.
-	requireValue = map[uint16]*bool{
+	requireValue = map[uint16]*interface{}{
 		dns.TypeAAAA:  f,
 		dns.TypeA:     f,
 		dns.TypeCNAME: f,
@@ -20,8 +20,13 @@ var (
 		dns.TypePTR:   f,
 		dns.TypeTXT:   f,
 		dns.TypeMX:    f}
-	requirePriority = map[uint16]*bool{
+	requirePriority = map[uint16]*interface{}{
 		dns.TypeMX: f}
+	requireTrailingPeriodInValue = map[uint16]*interface{}{
+		dns.TypeCNAME: f,
+		dns.TypeNS:    f,
+		dns.TypePTR:   f,
+		dns.TypeMX:    f}
 )
 
 func ParseDNSRecord(req *http.Request) (*pb.DNSRecord, error) {
@@ -76,6 +81,12 @@ func ParseDNSRecord(req *http.Request) (*pb.DNSRecord, error) {
 		*val = req.FormValue(field)
 		if *val == "" {
 			return nil, fmt.Errorf("missing field %s", field)
+		}
+	}
+
+	if _, ok := requireTrailingPeriodInValue[uint16(dnsRecord.GetType())]; ok {
+		if dnsRecord.GetValue()[len(dnsRecord.GetValue())-1] != '.' {
+			return nil, fmt.Errorf("value field must end with a period")
 		}
 	}
 

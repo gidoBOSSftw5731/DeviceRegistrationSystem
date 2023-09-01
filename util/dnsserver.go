@@ -64,7 +64,7 @@ func (h DNSHandler) HandleDNS(resp dns.ResponseWriter, req *dns.Msg) {
 		var records []*pb.DNSRecord
 		h.DB.Where("LOWER(name) = LOWER(?) AND type = ?", name, dns.TypeA).Find(&records)
 		for _, record := range records {
-			m.Answer = append(m.Answer, h.fmtA(record))
+			m.Answer = append(m.Answer, fmtA(record))
 		}
 	case dns.TypeAXFR:
 		// check if the requester is in the axfr allowed list
@@ -98,13 +98,16 @@ func (h DNSHandler) HandleDNS(resp dns.ResponseWriter, req *dns.Msg) {
 		var records []*pb.DNSRecord
 		h.DB.Where("LOWER(name) = LOWER(?) AND type != ?", name, dns.TypeSOA).Find(&records)
 		for _, record := range records {
-			switch uint16(record.Type) {
-			// ignore SOA records
-			case dns.TypeSOA:
-			case dns.TypeAAAA:
-				m.Answer = append(m.Answer, fmtAAAA(record))
-			case dns.TypeA:
-				m.Answer = append(m.Answer, h.fmtA(record))
+			//Always ignore SOA records during an AXFR
+			if record.GetType() == uint32(dns.TypeSOA) {
+				continue
+			}
+			// This one loop works for the *vast majority* of records,
+			// where all the handlers are somewhere else.
+			if formatter, ok := recordToFmt[uint16(record.Type)]; ok {
+				log.Tracef("Formatting record %#v", record)
+				m.Answer = append(m.Answer, formatter(record))
+				continue
 			}
 		}
 		// add the SOA record to the end of the response, as per RFC 5936

@@ -2,10 +2,20 @@ package util
 
 import (
 	"net"
+	"strconv"
 	"time"
 
 	pb "github.com/gidoBOSSftw5731/DeviceRegistrationSystem/proto"
+	"github.com/gidoBOSSftw5731/log"
 	"github.com/miekg/dns"
+)
+
+var (
+	recordToFmt = map[uint16]func(*pb.DNSRecord) dns.RR{
+		dns.TypeAAAA: fmtAAAA,
+		dns.TypeA:    fmtA,
+		dns.TypeMX:   fmtMX,
+	}
 )
 
 func (h DNSHandler) genSOA(resp dns.ResponseWriter, req *dns.Msg,
@@ -33,7 +43,7 @@ func (h DNSHandler) genSOA(resp dns.ResponseWriter, req *dns.Msg,
 	return rr
 }
 
-func fmtAAAA(record *pb.DNSRecord) *dns.AAAA {
+func fmtAAAA(record *pb.DNSRecord) dns.RR {
 	rr := new(dns.AAAA)
 	rr.Hdr = dns.RR_Header{
 		Name:   processFullName(record),
@@ -45,7 +55,7 @@ func fmtAAAA(record *pb.DNSRecord) *dns.AAAA {
 	return rr
 }
 
-func (h DNSHandler) fmtA(record *pb.DNSRecord) *dns.A {
+func fmtA(record *pb.DNSRecord) dns.RR {
 	rr := new(dns.A)
 	rr.Hdr = dns.RR_Header{
 		Name:   processFullName(record),
@@ -54,5 +64,22 @@ func (h DNSHandler) fmtA(record *pb.DNSRecord) *dns.A {
 		Ttl:    record.GetTtl(),
 	}
 	rr.A = net.ParseIP(record.GetValue())
+	return rr
+}
+
+func fmtMX(record *pb.DNSRecord) dns.RR {
+	rr := new(dns.MX)
+	rr.Hdr = dns.RR_Header{
+		Name:   processFullName(record),
+		Rrtype: dns.TypeMX,
+		Class:  dns.ClassINET,
+		Ttl:    record.GetTtl(),
+	}
+	rr.Mx = record.GetValue()
+	prio, err := strconv.ParseUint(record.GetPriority(), 10, 16)
+	if err != nil {
+		log.Errorln("Error parsing MX priority:", err)
+	}
+	rr.Preference = uint16(prio)
 	return rr
 }
