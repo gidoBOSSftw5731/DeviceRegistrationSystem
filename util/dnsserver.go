@@ -52,20 +52,8 @@ func (h DNSHandler) HandleDNS(resp dns.ResponseWriter, req *dns.Msg) {
 	}
 
 	switch q.Qtype {
-	case dns.TypeAAAA:
-		var records []*pb.DNSRecord
-		h.DB.Where("LOWER(name) = LOWER(?) AND type = ?", name, dns.TypeAAAA).Find(&records)
-		for _, record := range records {
-			m.Answer = append(m.Answer, fmtAAAA(record))
-		}
 	case dns.TypeSOA:
 		m.Answer = append(m.Answer, h.genSOA(resp, req, name))
-	case dns.TypeA:
-		var records []*pb.DNSRecord
-		h.DB.Where("LOWER(name) = LOWER(?) AND type = ?", name, dns.TypeA).Find(&records)
-		for _, record := range records {
-			m.Answer = append(m.Answer, fmtA(record))
-		}
 	case dns.TypeAXFR:
 		// check if the requester is in the axfr allowed list
 		var allowed bool
@@ -97,19 +85,8 @@ func (h DNSHandler) HandleDNS(resp dns.ResponseWriter, req *dns.Msg) {
 		// get all non-SOA records for the requested name
 		var records []*pb.DNSRecord
 		h.DB.Where("LOWER(name) = LOWER(?) AND type != ?", name, dns.TypeSOA).Find(&records)
-		for _, record := range records {
-			//Always ignore SOA records during an AXFR
-			if record.GetType() == uint32(dns.TypeSOA) {
-				continue
-			}
-			// This one loop works for the *vast majority* of records,
-			// where all the handlers are somewhere else.
-			if formatter, ok := recordToFmt[uint16(record.Type)]; ok {
-				log.Tracef("Formatting record %#v", record)
-				m.Answer = append(m.Answer, formatter(record))
-				continue
-			}
-		}
+		m.Answer = append(m.Answer, h.autoRRFormatter(records)...)
+
 		// add the SOA record to the end of the response, as per RFC 5936
 		m.Answer = append(m.Answer, h.genSOA(resp, req, name))
 		log.Tracef("%#v", m.Answer)
@@ -120,6 +97,9 @@ func (h DNSHandler) HandleDNS(resp dns.ResponseWriter, req *dns.Msg) {
 		}
 
 	default:
+		var records []*pb.DNSRecord
+		h.DB.Where("LOWER(name) = LOWER(?) AND type = ?", name, q.Qtype).Find(&records)
+		m.Answer = append(m.Answer, h.autoRRFormatter(records)...)
 		log.Errorf("Unsupported query type %d", q.Qtype)
 		m.SetRcode(req, dns.RcodeNotImplemented)
 	}

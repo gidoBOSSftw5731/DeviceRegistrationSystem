@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	pb "github.com/gidoBOSSftw5731/DeviceRegistrationSystem/proto"
+	"github.com/gidoBOSSftw5731/log"
 	"github.com/miekg/dns"
 )
 
@@ -100,4 +101,24 @@ func processFullName(record *pb.DNSRecord) string {
 	default:
 		return fmt.Sprintf("%s.%s", record.GetName(), record.GetZone())
 	}
+}
+
+// autoRRFormatter calls singleAutoRRFormatter for each record in records,
+// and returns a slice of the results.
+func (h DNSHandler) autoRRFormatter(records []*pb.DNSRecord) []dns.RR {
+	var ret []dns.RR
+	// This one loop works for the *vast majority* of records,
+	// where all the handlers are somewhere else.
+	for _, record := range records {
+		ret = append(ret, h.singleAutoRRFormatter(record))
+	}
+	return ret
+}
+
+func (h DNSHandler) singleAutoRRFormatter(record *pb.DNSRecord) dns.RR {
+	if formatter, ok := recordToFmt[uint16(record.Type)]; ok {
+		log.Tracef("Formatting record %#v", record)
+		return formatter(record)
+	}
+	return nil
 }
