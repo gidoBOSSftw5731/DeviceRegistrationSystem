@@ -51,6 +51,38 @@ func (h DNSHandler) HandleDNS(resp dns.ResponseWriter, req *dns.Msg) {
 		return
 	}
 
+	// check if the requested name is in the database at all, otherwise return NXDOMAIN
+	// This is designed to assume that it is more efficient to query the database twice,
+	// once for "the first record for this name" and once for "all records for this name
+	// and type," as opposed to querying the database once for "all records for this name"
+	// and then filtering out the ones that don't match the type.
+	// The reasoning behind this is because it's almost certainly faster for the database to
+	// look at the index twice than it is for us to iterate over an entire slice of all records
+	// for a name.
+	result := h.DB.Where("LOWER(name) = LOWER(?)", name).First(&pb.DNSRecord{})
+	switch result.Error {
+	case nil:
+		// do nothing
+	case gorm.ErrRecordNotFound:
+		log.Errorf("Requested name %s (%v) not found in database",
+			name, q.Name)
+		m.SetRcode(req, dns.RcodeNameError)
+		err := resp.WriteMsg(m)
+		if err != nil {
+			log.Errorf("Error writing response: %s", err)
+		}
+		return
+	default:
+		log.Errorf("Error querying database: %s", result.Error)
+		m.SetRcode(req, dns.RcodeServerFailure)
+		err := resp.WriteMsg(m)
+		if err != nil {
+			log.Errorf("Error writing response: %s", err)
+		}
+		return
+	}
+
+	// switch based on the type of query
 	switch q.Qtype {
 	case dns.TypeSOA:
 		m.Answer = append(m.Answer, h.genSOA(resp, req, name))
