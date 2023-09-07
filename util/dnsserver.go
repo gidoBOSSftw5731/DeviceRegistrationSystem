@@ -32,7 +32,7 @@ func (h DNSHandler) HandleDNS(resp dns.ResponseWriter, req *dns.Msg) {
 	for _, zone := range h.Config.GetDnsConf().GetRootZones() {
 		if dns.IsSubDomain(zone, q.Name) {
 			log.Traceln("Found zone", zone, "for name", q.Name)
-			name = q.Name[:len(q.Name)-len(zone)]
+			name = q.Name[:len(q.Name)-len(zone)-1]
 			if name == "" {
 				name = "@"
 			}
@@ -59,7 +59,7 @@ func (h DNSHandler) HandleDNS(resp dns.ResponseWriter, req *dns.Msg) {
 	// The reasoning behind this is because it's almost certainly faster for the database to
 	// look at the index twice than it is for us to iterate over an entire slice of all records
 	// for a name.
-	result := h.DB.Where("LOWER(name) = LOWER(?)", name).First(&pb.DNSRecord{})
+	result := h.DB.Where("LOWER(name) = LOWER(?) AND LOWER(zone) = LOWER (?)", name, req.Question[0].Name[len(name)+1:]).Take(&pb.DNSRecord{})
 	switch result.Error {
 	case nil:
 		// do nothing
@@ -131,9 +131,12 @@ func (h DNSHandler) HandleDNS(resp dns.ResponseWriter, req *dns.Msg) {
 	default:
 		var records []*pb.DNSRecord
 		h.DB.Where("LOWER(name) = LOWER(?) AND type = ?", name, q.Qtype).Find(&records)
+		if _, ok := recordToFmt[q.Qtype]; !ok {
+			log.Errorf("Unsupported query type %d", q.Qtype)
+			m.SetRcode(req, dns.RcodeNotImplemented)
+			break
+		}
 		m.Answer = append(m.Answer, h.autoRRFormatter(records)...)
-		log.Errorf("Unsupported query type %d", q.Qtype)
-		m.SetRcode(req, dns.RcodeNotImplemented)
 	}
 
 	err := resp.WriteMsg(m)
